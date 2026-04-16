@@ -1,0 +1,124 @@
+# Tạm thời comment Remote Backend nếu AWS Learner Lab báo lỗi IAM Permission
+
+terraform {
+  # Khai báo sử dụng AWS S3 để lưu trữ file trạng thái (Thay vì lưu ở máy cá nhân)
+  backend "s3" {
+    bucket         = "nbao-terraform-state-final" # BẠN PHẢI TỰ ĐỔI TÊN NÀY CHO KHÔNG TRÙNG VỚI AI
+    key            = "final-project/terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "terraform-state-lock" # Bảng này dùng để khóa, tránh 2 người sửa cùng lúc
+    encrypt        = true
+  }
+}
+
+locals {
+  common_tags = {
+    Project     = "E-Commerce-App"
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
+}
+
+data "aws_ami" "ubuntu" {
+  most_recent = true
+  owners      = ["099720109477"]
+
+  filter {
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
+  }
+}
+
+# --- 1. Tạo Security Group hỗ trợ Docker Swarm ---
+resource "aws_security_group" "swarm_sg" {
+  name        = "${var.environment}-swarm-sg"
+  description = "Security Group for Docker Swarm Cluster"
+
+  # Các port public (SSH, HTTP, HTTPS)
+  dynamic "ingress" {
+    for_each = [22, 80, 443, 8080]
+    content {
+      from_port   = ingress.value
+      to_port     = ingress.value
+      protocol    = "tcp"
+      cidr_blocks = ["0.0.0.0/0"]
+    }
+  }
+
+  # Port quản lý cụm Swarm (chỉ nên mở TCP)
+  ingress {
+    from_port   = 2377
+    to_port     = 2377
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"] # Trong thực tế nên giới hạn dải IP VPC nội bộ
+  }
+
+  # Port giao tiếp giữa các node (TCP & UDP)
+  ingress {
+    from_port   = 7946
+    to_port     = 7946
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  ingress {
+    from_port   = 7946
+    to_port     = 7946
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Port cho Overlay Network của Swarm (UDP)
+  ingress {
+    from_port   = 4789
+    to_port     = 4789
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# --- 2. Tạo 1 Node Manager ---
+resource "aws_instance" "swarm_manager" {
+  ami           = data.aws_ami.ubuntu.id
+  instance_type = var.instance_type
+  key_name      = var.key_name
+  vpc_security_group_ids = [aws_security_group.swarm_sg.id]
+
+  tags = merge(local.common_tags, { Name = "${var.environment}-swarm-manager" })
+}
+
+# --- 3. Tạo 2 Node Workers bằng vòng lặp count ---
+resource "aws_instance" "swarm_workers" {
+  count         = 2 # Tạo ra 2 máy worker
+  ami           = data.aws_ami.ubuntu.id
+  instance_type = var.instance_type
+  key_name      = var.key_name
+  vpc_security_group_ids = [aws_security_group.swarm_sg.id]
+
+  tags = merge(local.common_tags, { Name = "${var.environment}-swarm-worker-${count.index + 1}" })
+}
+
+# --- 4. Gán IP tĩnh (EIP) cho DUY NHẤT Node Manager ---
+resource "aws_eip" "manager_ip" {
+  instance = aws_instance.swarm_manager.id
+  domain   = "vpc"
+  tags     = merge(local.common_tags, { Name = "${var.environment}-manager-eip" })
+}
+# --- 5. Tự động sinh file hosts.ini cho Ansible ---
+resource "local_file" "ansible_inventory" {
+  content = <<-DOC
+    [managers]
+    manager ansible_host=${aws_eip.manager_ip.public_ip} ansible_user=ubuntu ansible_ssh_private_key_file=./labsuser.pem
+
+    [workers]
+    worker1 ansible_host=${aws_instance.swarm_workers[0].public_ip} ansible_user=ubuntu ansible_ssh_private_key_file=./labsuser.pem
+    worker2 ansible_host=${aws_instance.swarm_workers[1].public_ip} ansible_user=ubuntu ansible_ssh_private_key_file=./labsuser.pem
+  DOC
+  filename = "${path.module}/hosts.ini"
+}

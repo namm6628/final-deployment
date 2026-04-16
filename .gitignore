@@ -1,0 +1,18 @@
+# 1. Khóa bảo mật & Biến môi trường (TUYỆT ĐỐI CẤM)
+*.pem
+labsuser.pem
+.env
+
+# 2. File trạng thái của Terraform (Chứa dữ liệu nhạy cảm)
+.terraform/
+*.tfstate
+*.tfstate.backup
+
+# 3. File IP sinh tự động của Ansible
+hosts.ini
+
+# 4. Thư viện Node.js (Rất nặng, GitHub Actions sẽ tự tải lại)
+node_modules/
+
+# 5. File rác của hệ điều hành và nháp
+.DS_Store
