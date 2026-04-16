@@ -1,18 +1,56 @@
-# 1. Khóa bảo mật & Biến môi trường (TUYỆT ĐỐI CẤM)
+# ========================
+# 🔐 Security (TUYỆT ĐỐI KHÔNG COMMIT)
+# ========================
 *.pem
 labsuser.pem
 .env
+.env.*
 
-# 2. File trạng thái của Terraform (Chứa dữ liệu nhạy cảm)
+# ========================
+# ⚙️ Terraform
+# ========================
 .terraform/
 *.tfstate
 *.tfstate.backup
 
-# 3. File IP sinh tự động của Ansible
+# ========================
+# 🖥️ Ansible / Infra
+# ========================
 hosts.ini
 
-# 4. Thư viện Node.js (Rất nặng, GitHub Actions sẽ tự tải lại)
+# ========================
+# 📦 Node.js
+# ========================
 node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# 5. File rác của hệ điều hành và nháp
+# ========================
+# 🧪 Logs & runtime
+# ========================
+logs
+*.log
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# ========================
+# 🧹 Build / cache
+# ========================
+dist
+build/
+coverage
+.nyc_output
+.cache
+.parcel-cache
+.next
+.nuxt
+.svelte-kit/
+
+# ========================
+# 🖥️ OS / temp files
+# ========================
 .DS_Store
+~$*
