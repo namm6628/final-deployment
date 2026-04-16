@@ -54,3 +54,5 @@ coverage
 # ========================
 .DS_Store
 ~$*
+
+backend.conf
