@@ -18,3 +18,5 @@ EXPOSE 3000
 
 # 7. Lệnh khởi chạy ứng dụng
 CMD ["npm", "start"]
+
+

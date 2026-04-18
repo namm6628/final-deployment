@@ -1,14 +1,12 @@
 # Tạm thời comment Remote Backend nếu AWS Learner Lab báo lỗi IAM Permission
 
 terraform {
-  backend "s3" {} # Để trống hoàn toàn ở đây
+  backend "s3" {} # Để trống hoàn toàn ở đây để dùng backend.conf
 }
 
 provider "aws" {
   region = "us-east-1"
 }
-
-
 
 locals {
   common_tags = {
@@ -33,7 +31,7 @@ resource "aws_security_group" "swarm_sg" {
   name        = "${var.environment}-swarm-sg"
   description = "Security Group for Docker Swarm Cluster"
 
-  # Các port public (SSH, HTTP, HTTPS)
+  # Các port public cho User bên ngoài truy cập (SSH, HTTP, HTTPS, Web App)
   dynamic "ingress" {
     for_each = [22, 80, 443, 8080]
     content {
@@ -44,34 +42,42 @@ resource "aws_security_group" "swarm_sg" {
     }
   }
 
-  # Port quản lý cụm Swarm (chỉ nên mở TCP)
+  # --- CÁC PORT NỘI BỘ CỦA SWARM ---
+  # Chỉ cho phép các node trong cùng Security Group giao tiếp (self = true)
+
+  # Port quản lý cụm Swarm
   ingress {
+    description = "Swarm Manager Node management"
     from_port   = 2377
     to_port     = 2377
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # Trong thực tế nên giới hạn dải IP VPC nội bộ
+    self        = true
   }
 
   # Port giao tiếp giữa các node (TCP & UDP)
   ingress {
+    description = "Swarm Node communication (TCP)"
     from_port   = 7946
     to_port     = 7946
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    self        = true
   }
+  
   ingress {
+    description = "Swarm Node communication (UDP)"
     from_port   = 7946
     to_port     = 7946
     protocol    = "udp"
-    cidr_blocks = ["0.0.0.0/0"]
+    self        = true
   }
 
   # Port cho Overlay Network của Swarm (UDP)
   ingress {
+    description = "Swarm Overlay Network traffic"
     from_port   = 4789
     to_port     = 4789
     protocol    = "udp"
-    cidr_blocks = ["0.0.0.0/0"]
+    self        = true
   }
 
   egress {
@@ -109,6 +115,7 @@ resource "aws_eip" "manager_ip" {
   domain   = "vpc"
   tags     = merge(local.common_tags, { Name = "${var.environment}-manager-eip" })
 }
+
 # --- 5. Tự động sinh file hosts.ini cho Ansible ---
 resource "local_file" "ansible_inventory" {
   content = <<-DOC

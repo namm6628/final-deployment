@@ -5,19 +5,26 @@
   tasks:
     - name: Cap nhat apt va cai cac goi phu tro
       apt:
-        name: ['apt-transport-https', 'ca-certificates', 'curl', 'software-properties-common']
+        name: ['apt-transport-https', 'ca-certificates', 'curl', 'software-properties-common', 'gnupg']
         state: present
         update_cache: yes
 
-    - name: Them Docker GPG key
-      apt_key:
-        url: https://download.docker.com/linux/ubuntu/gpg
-        state: present
+    - name: Tao thu muc keyrings chuan cua Ubuntu 22.04
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
 
-    - name: Them Docker APT repository
+    - name: Them Docker GPG key (Chuan moi)
+      shell: curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+      args:
+        creates: /etc/apt/keyrings/docker.gpg # Tinh luy dang: Neu file co roi thi bo qua
+
+    - name: Them Docker APT repository (Chuan moi)
       apt_repository:
-        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu jammy stable
+        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu jammy stable"
         state: present
+        filename: docker
 
     - name: Cai dat Docker Engine
       apt:
