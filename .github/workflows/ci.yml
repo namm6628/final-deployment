@@ -5,6 +5,7 @@ on:
     branches:
       - main # Kích hoạt khi có code mới đẩy lên nhánh main
       - dev
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -30,7 +31,8 @@ jobs:
 
       # Yêu cầu: Container Image Build với Explicit Tags (Commit Hash)
       - name: Build Docker Image
-        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/final:${{ github.sha }} .
+        # ĐÃ SỬA: Thêm cd final_code && để trỏ đúng vào thư mục chứa Dockerfile
+        run: cd final_code && docker build -t ${{ secrets.DOCKER_USERNAME }}/final:${{ github.sha }} .
 
       # Yêu cầu: Security Scanning (Dùng Trivy)
       - name: Quét bảo mật Image (Trivy)
