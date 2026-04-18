@@ -22,7 +22,7 @@ jobs:
           cache-dependency-path: 'final_code/package-lock.json'
 
       - name: Tải thư viện (Dependencies)
-        run: npm ci
+        run: cd final_code && npm install
 
       # Yêu cầu: Code Quality and Linting
       - name: Kiểm tra chất lượng code
