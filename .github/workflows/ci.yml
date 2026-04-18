@@ -26,7 +26,7 @@ jobs:
 
       # Yêu cầu: Code Quality and Linting
       - name: Kiểm tra chất lượng code
-        run: npm run lint
+        run: cd final_code && npm run lint
 
       # Yêu cầu: Container Image Build với Explicit Tags (Commit Hash)
       - name: Build Docker Image
