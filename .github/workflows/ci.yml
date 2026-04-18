@@ -19,6 +19,7 @@ jobs:
         with:
           node-version: '18' 
           cache: 'npm'
+          cache-dependency-path: 'final_code/package-lock.json'
 
       - name: Tải thư viện (Dependencies)
         run: npm ci
