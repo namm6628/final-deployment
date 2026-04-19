@@ -1,4 +1,4 @@
-name: Continuous Integration (CI)
+name: Continuous Integration and Continuous Delivery (CI/CD)
 
 on:
   push:
@@ -8,6 +8,7 @@ on:
 
 jobs:
   build-and-test:
+    name: Continuous Integration (CI)
     runs-on: ubuntu-latest
 
     steps:
@@ -53,3 +54,23 @@ jobs:
 
       - name: Đẩy Image lên Docker Hub
         run: docker push ${{ secrets.DOCKER_USERNAME }}/final:${{ github.sha }}
+
+  deploy:
+    name: Continuous Delivery (CD)
+    needs: build-and-test # Bắt buộc đợi CI chạy xong và thành công
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy lên AWS Docker Swarm
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            echo "Kéo Image mới nhất từ Docker Hub..."
+            docker pull ${{ secrets.DOCKER_USERNAME }}/final:${{ github.sha }}
+            
+            echo "Cập nhật dịch vụ Docker Swarm..."
+            # LƯU Ý: Bạn cần thay 'ten_dich_vu_cua_ban' bằng tên Service thực tế trong Swarm
+            docker service update --image ${{ secrets.DOCKER_USERNAME }}/final:${{ github.sha }} ten_dich_vu_cua_ban
