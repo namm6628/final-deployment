@@ -73,4 +73,4 @@ jobs:
             
             echo "Cập nhật dịch vụ Docker Swarm..."
             # LƯU Ý: Bạn cần thay 'ten_dich_vu_cua_ban' bằng tên Service thực tế trong Swarm
-            docker service update --image ${{ secrets.DOCKER_USERNAME }}/final:${{ github.sha }} ten_dich_vu_cua_ban
+            docker service update --image ${{ secrets.DOCKER_USERNAME }}/final:${{ github.sha }} my-final-app_app
