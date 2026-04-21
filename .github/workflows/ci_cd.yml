@@ -32,7 +32,7 @@ jobs:
 
       # Yêu cầu: Container Image Build với Explicit Tags (Commit Hash)
       - name: Build Docker Image
-        run: cd final_code && docker build -t ${{ secrets.DOCKER_USERNAME }}/final:${{ github.sha }} .
+        run: cd final_code && docker build --no-cache -t ${{ secrets.DOCKER_USERNAME }}/final:${{ github.sha }} .
 
       # Yêu cầu: Security Scanning (Dùng Trivy)
       - name: Quét bảo mật Image (Trivy)
