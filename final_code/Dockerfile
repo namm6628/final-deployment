@@ -8,7 +8,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # 4. Cài đặt thư viện
-RUN npm ci --omit=dev
+RUN npm install -g npm@latest
 
 # 5. Copy toàn bộ code còn lại vào container
 COPY . .

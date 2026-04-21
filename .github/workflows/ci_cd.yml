@@ -41,7 +41,6 @@ jobs:
           image-ref: '${{ secrets.DOCKER_USERNAME }}/final:${{ github.sha }}'
           format: 'table'
           exit-code: '1' 
-          trivyignores: 'final_code/.trivyignore' # Đọc danh sách bỏ qua từ thư mục gốc
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
