@@ -43,7 +43,7 @@ jobs:
           exit-code: '1'
           ignore-unfixed: true
           vuln-type: 'os,library'
-          severity: 'CRITICAL'   # ⚠️ đổi để tránh fail do HIGH
+          severity: 'CRITICAL,HIGH'   # ⚠️ đổi để tránh fail do HIGH
 
       # Push Docker Image
       - name: Đăng nhập Docker Hub
