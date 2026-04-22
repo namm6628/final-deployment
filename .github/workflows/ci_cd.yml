@@ -32,7 +32,10 @@ jobs:
 
       # Build Docker Image
       - name: Build Docker Image
-        run: docker build --no-cache -t final:${{ github.sha }} ./final_code
+        run: docker build --no-cache --pull -t final:${{ github.sha }} ./final_code
+
+      - name: DEBUG - check filelist in container
+        run: docker run final:${{ github.sha }} npm ls filelist
 
       # Security Scanning (Trivy)
       - name: Quét bảo mật Image (Trivy)
@@ -57,7 +60,7 @@ jobs:
 
       - name: Đẩy Image lên Docker Hub
         run: docker push ${{ secrets.DOCKER_USERNAME }}/final:${{ github.sha }}
-        
+
   deploy:
     name: Continuous Delivery (CD)   # ✅ fix indent
     needs: build-and-test
