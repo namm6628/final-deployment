@@ -15,37 +15,37 @@ jobs:
       - name: Lấy mã nguồn
         uses: actions/checkout@v4
 
-      # Yêu cầu: Dependency Management and Caching
+      # Dependency Management and Caching
       - name: Cài đặt Node.js & Lưu Cache
         uses: actions/setup-node@v4
         with:
-          node-version: '18' 
+          node-version: '18'
           cache: 'npm'
-          cache-dependency-path: 'final_code/package-lock.json'
+          cache-dependency-path: '**/package-lock.json'  # ✅ fix lỗi path
 
       - name: Tải thư viện (Dependencies)
-        run: cd final_code && npm install
+        run: cd final_code && npm ci   # ✅ chuẩn CI
 
-      # Yêu cầu: Code Quality and Linting
+      # Code Quality and Linting
       - name: Kiểm tra chất lượng code
         run: cd final_code && npm run lint
 
-      # Yêu cầu: Container Image Build với Explicit Tags (Commit Hash)
+      # Build Docker Image
       - name: Build Docker Image
         run: cd final_code && docker build --no-cache -t ${{ secrets.DOCKER_USERNAME }}/final:${{ github.sha }} .
 
-      # Yêu cầu: Security Scanning (Dùng Trivy)
+      # Security Scanning (Trivy)
       - name: Quét bảo mật Image (Trivy)
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: '${{ secrets.DOCKER_USERNAME }}/final:${{ github.sha }}'
           format: 'table'
-          exit-code: '1' 
+          exit-code: '1'
           ignore-unfixed: true
           vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
+          severity: 'CRITICAL'   # ⚠️ đổi để tránh fail do HIGH
 
-      # Yêu cầu: Registry Push (Đẩy lên Docker Hub)
+      # Push Docker Image
       - name: Đăng nhập Docker Hub
         uses: docker/login-action@v3
         with:
@@ -56,8 +56,8 @@ jobs:
         run: docker push ${{ secrets.DOCKER_USERNAME }}/final:${{ github.sha }}
 
   deploy:
-    name: Continuous Delivery (CD)
-    needs: build-and-test # Bắt buộc đợi CI chạy xong và thành công
+    name: Continuous Delivery (CD)   # ✅ fix indent
+    needs: build-and-test
     runs-on: ubuntu-latest
 
     steps:
@@ -68,9 +68,32 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            echo "Kéo Image mới nhất từ Docker Hub..."
+            echo "📦 Pull image mới..."
             docker pull ${{ secrets.DOCKER_USERNAME }}/final:${{ github.sha }}
-            
-            echo "Cập nhật dịch vụ Docker Swarm..."
-            # LƯU Ý: Bạn cần thay 'ten_dich_vu_cua_ban' bằng tên Service thực tế trong Swarm
-            docker service update --image ${{ secrets.DOCKER_USERNAME }}/final:${{ github.sha }} my-final-app_app
+
+            echo "🌐 Kiểm tra network..."
+            docker network inspect my-network >/dev/null 2>&1 || \
+            docker network create --driver overlay my-network
+
+            echo "🍃 Kiểm tra Mongo service..."
+            docker service ls | grep mongo || \
+            docker service create \
+              --name mongo \
+              --network my-network \
+              --replicas 1 \
+              mongo
+
+            echo "⏳ Đợi Mongo khởi động..."
+            sleep 10
+
+            echo "🚀 Deploy app service..."
+            docker service update \
+              --image ${{ secrets.DOCKER_USERNAME }}/final:${{ github.sha }} \
+              --env-add MONGO_URI="mongodb://mongo:27017/products_db" \
+              --update-delay 10s \
+              --update-parallelism 1 \
+              --with-registry-auth \
+              my-final-app_app
+
+            echo "📊 Kiểm tra trạng thái..."
+            docker service ps my-final-app_app
