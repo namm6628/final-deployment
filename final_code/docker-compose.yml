@@ -34,7 +34,7 @@ services:
 
   # 🔵 PHÂN KHU BLUE
   app-blue:
-    image: nbao1502/final:${BLUE_IMAGE_TAG:-latest}
+    image: nbao1502/final:${BLUE_IMAGE_TAG}
     deploy:
       replicas: ${BLUE_REPLICAS:-3} # Mặc định cho Blue chạy trước
       labels:
@@ -46,7 +46,7 @@ services:
 
   # 🟢 PHÂN KHU GREEN
   app-green:
-    image: nbao1502/final:${GREEN_IMAGE_TAG:-latest}
+    image: nbao1502/final:${GREEN_IMAGE_TAG}
     deploy:
       replicas: ${GREEN_REPLICAS:-0} # Mặc định Green nghỉ
       labels:
