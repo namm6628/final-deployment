@@ -15,7 +15,6 @@ jobs:
       - name: Lấy mã nguồn
         uses: actions/checkout@v4
 
-      # Dependency Management & Caching
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -26,11 +25,9 @@ jobs:
       - name: Cài dependencies (clean install)
         run: cd final_code && npm ci
 
-      # Code Quality
       - name: Lint code
         run: cd final_code && npm run lint
 
-      # 🔥 1. SECURITY SCAN - APPLICATION (FAIL nếu có lỗi thật)
       - name: Scan Application (Trivy FS)
         uses: aquasecurity/trivy-action@master
         with:
@@ -41,22 +38,19 @@ jobs:
           ignore-unfixed: true
           severity: 'CRITICAL,HIGH'
 
-      # Build Docker Image
       - name: Build Docker Image
         run: cd final_code && docker build --no-cache -t ${{ secrets.DOCKER_USERNAME }}/final:${{ github.sha }} .
 
-      # 🔥 2. SECURITY SCAN - IMAGE (KHÔNG FAIL vì base image)
       - name: Scan Docker Image (Trivy Image)
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: '${{ secrets.DOCKER_USERNAME }}/final:${{ github.sha }}'
           format: 'table'
-          exit-code: '0'   # ⚠️ KHÔNG FAIL
+          exit-code: '0'
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
 
-      # Push Docker Image
       - name: Đăng nhập Docker Hub
         uses: docker/login-action@v3
         with:
@@ -70,14 +64,12 @@ jobs:
     name: Continuous Delivery (CD)
     needs: build-and-test
     runs-on: ubuntu-latest
-
     environment: production
 
     steps:
       - name: Lấy mã nguồn
         uses: actions/checkout@v4
 
-      # 1. Copy file docker-compose.yml lên Server AWS
       - name: Copy Compose File lên Server
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -87,7 +79,6 @@ jobs:
           source: "final_code/docker-compose.yml" 
           target: "/home/${{ secrets.SERVER_USER }}/app/" 
 
-      # 2. Thực hiện Blue-Green Deployment qua SSH
       - name: Deploy Blue-Green (Tuân thủ No-Latest)
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -100,57 +91,67 @@ jobs:
             echo "📦 Đăng nhập Docker Hub..."
             echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
-            # 1. Lấy Tag đang chạy của Blue và Green (Nếu chưa có thì dùng tạm Tag mới nhất vừa build)
-            # Lệnh này lấy tag từ image đang chạy, ví dụ: "nbao1502/final:abc123" -> lấy "abc123"
-            GET_BLUE_TAG=$(docker service inspect my-stack_app-blue --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}' | cut -d':' -f2 || echo "")
-            GET_GREEN_TAG=$(docker service inspect my-stack_app-green --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}' | cut -d':' -f2 || echo "")
-            
-            # 2. Xác định Tag hiện tại (Ưu tiên tag thực tế, nếu rỗng thì dùng tag của commit hiện tại)
-            CURRENT_BLUE_TAG=${GET_BLUE_TAG:-${{ github.sha }}}
-            CURRENT_GREEN_TAG=${GET_GREEN_TAG:-${{ github.sha }}}
-            NEW_TAG="${{ github.sha }}"
+            # 1. Lấy thông tin Image hiện tại từ Swarm (Fix lỗi cắt chuỗi rỗng)
+            RAW_BLUE=$(docker service inspect my-stack_app-blue --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}' 2>/dev/null || echo "")
+            RAW_GREEN=$(docker service inspect my-stack_app-green --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}' 2>/dev/null || echo "")
 
-            # 3. Kiểm tra xem màu nào đang có Replicas > 0
-            GREEN_COUNT=$(docker service ls --filter name=my-stack_app-green --format "{{.Replicas}}" | cut -d'/' -f1)
-            CURRENT_GREEN_REPLICAS=${GREEN_COUNT:-0}
+            # Trích xuất tag sau dấu ":" và đảm bảo không lấy giá trị rỗng
+            GET_BLUE_TAG=$(echo $RAW_BLUE | awk -F: '{print $2}' | awk -F@ '{print $1}')
+            GET_GREEN_TAG=$(echo $RAW_GREEN | awk -F: '{print $2}' | awk -F@ '{print $1}')
+            
+            # 2. Gán giá trị mặc định nếu là lần đầu deploy (tránh lỗi invalid reference format)
+            NEW_TAG="${{ github.sha }}"
+            CURRENT_BLUE_TAG=${GET_BLUE_TAG:-$NEW_TAG}
+            CURRENT_GREEN_TAG=${GET_GREEN_TAG:-$NEW_TAG}
+
+            # 3. Kiểm tra môi trường Live dựa trên Replicas
+            GREEN_STATUS=$(docker service ls --filter name=my-stack_app-green --format "{{.Replicas}}" | cut -d'/' -f1)
+            CURRENT_GREEN_REPLICAS=${GREEN_STATUS:-0}
+
+            echo "📊 Current Green Replicas: $CURRENT_GREEN_REPLICAS"
 
             if [ "$CURRENT_GREEN_REPLICAS" -ge "1" ]; then
-                echo "🟢 Green đang LIVE -> Target là 🔵 Blue"
+                echo "🟢 Green đang LIVE -> Target: 🔵 Blue"
                 TARGET_COLOR="blue"
-                # Blue nhận bản mới, Green giữ nguyên bản cũ của nó (không dùng latest)
-                echo "BLUE_IMAGE_TAG=$NEW_TAG" > .env
-                echo "GREEN_IMAGE_TAG=$CURRENT_GREEN_TAG" >> .env
-                echo "BLUE_REPLICAS=3" >> .env
-                echo "GREEN_REPLICAS=3" >> .env
+                LIVE_TAG=$CURRENT_GREEN_TAG
             else
-                echo "🔵 Blue đang LIVE -> Target là 🟢 Green"
+                echo "🔵 Blue đang LIVE -> Target: 🟢 Green"
                 TARGET_COLOR="green"
-                # Green nhận bản mới, Blue giữ nguyên bản cũ của nó
-                echo "GREEN_IMAGE_TAG=$NEW_TAG" > .env
-                echo "BLUE_IMAGE_TAG=$CURRENT_BLUE_TAG" >> .env
-                echo "GREEN_REPLICAS=3" >> .env
-                echo "BLUE_REPLICAS=3" >> .env
+                LIVE_TAG=$CURRENT_BLUE_TAG
             fi
 
-            echo "🚀 [BƯỚC 1/2] Deploy song song (Cả 2 cùng chạy)..."
-            docker stack deploy -c docker-compose.yml my-stack --with-registry-auth --detach=false
-
-            echo "⏳ Đợi 30s để phiên bản mới sống dậy..."
-            sleep 30
-
-            echo "✂️ [BƯỚC 2/2] Tắt phiên bản cũ..."
+            # --- BƯỚC 1: TRIỂN KHAI SONG SONG ---
+            echo "🚀 [1/2] Đang bật bản mới song song với bản cũ..."
             if [ "$TARGET_COLOR" == "blue" ]; then
                 echo "BLUE_IMAGE_TAG=$NEW_TAG" > .env
-                echo "GREEN_IMAGE_TAG=$CURRENT_GREEN_TAG" >> .env
+                echo "GREEN_IMAGE_TAG=$LIVE_TAG" >> .env
+            else
+                echo "GREEN_IMAGE_TAG=$NEW_TAG" > .env
+                echo "BLUE_IMAGE_TAG=$LIVE_TAG" >> .env
+            fi
+            echo "BLUE_REPLICAS=3" >> .env
+            echo "GREEN_REPLICAS=3" >> .env
+            
+            docker stack deploy -c docker-compose.yml my-stack --with-registry-auth --detach=false
+
+            echo "⏳ Chờ 30s để kiểm tra sức khỏe..."
+            sleep 30
+
+            # --- BƯỚC 2: TẮT BẢN CŨ ---
+            echo "✂️ [2/2] Đang ngắt kết nối bản cũ..."
+            if [ "$TARGET_COLOR" == "blue" ]; then
+                echo "BLUE_IMAGE_TAG=$NEW_TAG" > .env
+                echo "GREEN_IMAGE_TAG=$LIVE_TAG" >> .env
                 echo "BLUE_REPLICAS=3" >> .env
                 echo "GREEN_REPLICAS=0" >> .env
             else
                 echo "GREEN_IMAGE_TAG=$NEW_TAG" > .env
-                echo "BLUE_IMAGE_TAG=$CURRENT_BLUE_TAG" >> .env
+                echo "BLUE_IMAGE_TAG=$LIVE_TAG" >> .env
                 echo "GREEN_REPLICAS=3" >> .env
                 echo "BLUE_REPLICAS=0" >> .env
             fi
 
             docker stack deploy -c docker-compose.yml my-stack --with-registry-auth --detach=false
-            rm .env
-            echo "✅ Hoàn tất Blue-Green theo chuẩn explicit version tags!"
+            
+            echo "✅ Blue-Green Deployment thành công!"
+            docker service ls
