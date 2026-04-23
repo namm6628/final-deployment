@@ -93,8 +93,13 @@ jobs:
             RAW_GREEN=$(docker service inspect my-stack_app-green --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}' 2>/dev/null || echo "")
 
             # 2. Trích xuất Tag (Xử lý chuỗi an toàn)
-            GET_BLUE_TAG=$(echo $RAW_BLUE | awk -F: '{print $2}' | awk -F@ '{print $1}')
-            GET_GREEN_TAG=$(echo $RAW_GREEN | awk -F: '{print $2}' | awk -F@ '{print $1}')
+            # Lấy Tag thực tế, nếu không có (lần đầu deploy) thì dùng Tag mới luôn
+            GET_BLUE_TAG=$(docker service inspect my-stack_app-blue --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}' | cut -d':' -f2 || echo "")
+            CURRENT_BLUE_TAG=${GET_BLUE_TAG:-${{ github.sha }}}
+
+            # Tương tự cho Green
+            GET_GREEN_TAG=$(docker service inspect my-stack_app-green --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}' | cut -d':' -f2 || echo "")
+            CURRENT_GREEN_TAG=${GET_GREEN_TAG:-${{ github.sha }}}
             
             NEW_TAG="${{ github.sha }}"
             # QUAN TRỌNG: Nếu không thấy tag cũ, dùng luôn NEW_TAG để không bị trống
