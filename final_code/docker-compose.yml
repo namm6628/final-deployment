@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-	# 1. CỔNG GÁC TRAEFIK
+  # 1. CỔNG GÁC TRAEFIK
   traefik:
     image: traefik:v2.11
     command:
@@ -18,20 +18,26 @@ services:
       - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
       - "--certificatesresolvers.myresolver.acme.email=nbao1502@gmail.com" # <--- 1. ĐỔI THÀNH EMAIL THẬT CỦA BẠN
       - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+
     ports:
       - "80:80"
       - "443:443"
+
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "traefik-certs:/letsencrypt"
+
     deploy:
       placement:
         constraints:
           - node.role == manager # Traefik BẮT BUỘC phải nằm ở Manager
+
   app:
     image: nbao1502/final:${IMAGE_TAG:-v1}
+
 #    ports:
 #      - "80:3000"
+
     deploy:
       replicas: 3
       update_config:
@@ -47,12 +53,16 @@ services:
         - "traefik.http.routers.myapp.tls.certresolver=myresolver"
         # Báo cho Traefik biết app của bạn chạy ở cổng 3000 bên trong container
         - "traefik.http.services.myapp.loadbalancer.server.port=3000"
+
   visualizer:
     image: dockersamples/visualizer:stable
+
     ports:
       - "8080:8080"
+
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock"
+
     deploy:
       placement:
         constraints: [node.role == manager]
