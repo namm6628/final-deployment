@@ -29,7 +29,7 @@ services:
         constraints:
           - node.role == manager # Traefik BẮT BUỘC phải nằm ở Manager
   app:
-    image: nbao1502/final:v1
+    image: nbao1502/final:${IMAGE_TAG:-v1}
 #    ports:
 #      - "80:3000"
     deploy:
