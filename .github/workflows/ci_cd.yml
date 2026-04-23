@@ -77,36 +77,78 @@ jobs:
       - name: Lấy mã nguồn
         uses: actions/checkout@v4
 
-      # 1. Copy file từ thư mục final_code lên Server AWS
+      # 1. Copy file docker-compose.yml lên Server AWS
       - name: Copy Compose File lên Server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          # 📍 ĐƯỜNG DẪN MỚI NẰM Ở ĐÂY
           source: "final_code/docker-compose.yml" 
           target: "/home/${{ secrets.SERVER_USER }}/app/" 
 
-      # 2. Đăng nhập SSH và Deploy Stack
-      - name: Deploy lên AWS Docker Swarm bằng Stack
+      # 2. Thực hiện Blue-Green Deployment qua SSH
+      - name: Deploy Blue-Green lên AWS Docker Swarm
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            # 📍 DI CHUYỂN VÀO ĐÚNG THƯ MỤC TRÊN SERVER TRƯỚC KHI DEPLOY
-            # Action SCP ở trên sẽ tự động tạo thư mục final_code bên trong app/
+            # Di chuyển vào thư mục chứa code
             cd /home/${{ secrets.SERVER_USER }}/app/final_code
             
             echo "📦 Đăng nhập Docker Hub..."
             echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+            echo "🔍 Kiểm tra trạng thái môi trường hiện tại..."
+            # Lấy số lượng replicas hiện tại của Green, mặc định là 0 nếu chưa có
+            GREEN_STATUS=$(docker service ls --filter name=my-stack_app-green --format "{{.Replicas}}" | cut -d'/' -f1)
+            CURRENT_GREEN_REPLICAS=${GREEN_STATUS:-0}
             
-            echo "🚀 Cập nhật biến môi trường và Deploy Stack..."
-            export IMAGE_TAG=${{ github.sha }}
+            NEW_TAG="${{ github.sha }}"
+
+            if [ "$CURRENT_GREEN_REPLICAS" -ge "1" ]; then
+                echo "🟢 Green đang LIVE -> Target deploy sẽ là 🔵 Blue"
+                TARGET_COLOR="blue"
+                # Cấu hình file .env cho bước 1: Cả 2 cùng chạy
+                echo "BLUE_IMAGE_TAG=$NEW_TAG" > .env
+                echo "GREEN_IMAGE_TAG=latest" >> .env
+                echo "BLUE_REPLICAS=3" >> .env
+                echo "GREEN_REPLICAS=3" >> .env
+            else
+                echo "🔵 Blue đang LIVE (hoặc chưa có) -> Target deploy sẽ là 🟢 Green"
+                TARGET_COLOR="green"
+                # Cấu hình file .env cho bước 1: Cả 2 cùng chạy
+                echo "GREEN_IMAGE_TAG=$NEW_TAG" > .env
+                echo "BLUE_IMAGE_TAG=latest" >> .env
+                echo "GREEN_REPLICAS=3" >> .env
+                echo "BLUE_REPLICAS=3" >> .env
+            fi
+
+            echo "🚀 [BƯỚC 1/2] Đang triển khai phiên bản mới song song với phiên bản cũ..."
+            docker stack deploy -c docker-compose.yml my-stack --with-registry-auth --detach=false
+
+            echo "⏳ Chờ 30 giây để phiên bản mới khởi động hoàn tất..."
+            sleep 30
+
+            echo "✂️ [BƯỚC 2/2] Chuyển toàn bộ traffic sang phiên bản mới và tắt bản cũ..."
+            if [ "$TARGET_COLOR" == "blue" ]; then
+                echo "BLUE_IMAGE_TAG=$NEW_TAG" > .env
+                echo "GREEN_IMAGE_TAG=latest" >> .env
+                echo "BLUE_REPLICAS=3" >> .env
+                echo "GREEN_REPLICAS=0" >> .env
+            else
+                echo "GREEN_IMAGE_TAG=$NEW_TAG" > .env
+                echo "BLUE_IMAGE_TAG=latest" >> .env
+                echo "GREEN_REPLICAS=3" >> .env
+                echo "BLUE_REPLICAS=0" >> .env
+            fi
+
+            docker stack deploy -c docker-compose.yml my-stack --with-registry-auth --detach=false
             
-            docker stack deploy -c docker-compose.yml my-stack --with-registry-auth
+            echo "🧹 Dọn dẹp file cấu hình tạm..."
+            rm .env
             
-            echo "📊 Trạng thái các service..."
+            echo "✅ BLUE-GREEN DEPLOYMENT THÀNH CÔNG!"
             docker service ls

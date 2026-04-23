@@ -32,27 +32,29 @@ services:
         constraints:
           - node.role == manager # Traefik BẮT BUỘC phải nằm ở Manager
 
-  app:
-    image: nbao1502/final:${IMAGE_TAG:-v1}
-
-#    ports:
-#      - "80:3000"
-
+  # 🔵 PHÂN KHU BLUE
+  app-blue:
+    image: nbao1502/final:${BLUE_IMAGE_TAG:-latest}
     deploy:
-      replicas: 3
-      update_config:
-        parallelism: 1
-        delay: 10s
-      restart_policy:
-        condition: on-failure
+      replicas: ${BLUE_REPLICAS:-3} # Mặc định cho Blue chạy trước
       labels:
         - "traefik.enable=true"
-        # Chú ý dấu backtick ` bao quanh tên miền
-        - "traefik.http.routers.myapp.rule=Host(`namcloud.xyz`)"
-        - "traefik.http.routers.myapp.entrypoints=websecure"
-        - "traefik.http.routers.myapp.tls.certresolver=myresolver"
-        # Báo cho Traefik biết app của bạn chạy ở cổng 3000 bên trong container
-        - "traefik.http.services.myapp.loadbalancer.server.port=3000"
+        - "traefik.http.routers.app-blue.rule=Host(`namcloud.xyz`)"
+        - "traefik.http.routers.app-blue.entrypoints=websecure"
+        - "traefik.http.routers.app-blue.tls.certresolver=myresolver"
+        - "traefik.http.services.app-blue.loadbalancer.server.port=3000"
+
+  # 🟢 PHÂN KHU GREEN
+  app-green:
+    image: nbao1502/final:${GREEN_IMAGE_TAG:-latest}
+    deploy:
+      replicas: ${GREEN_REPLICAS:-0} # Mặc định Green nghỉ
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.app-green.rule=Host(`namcloud.xyz`)"
+        - "traefik.http.routers.app-green.entrypoints=websecure"
+        - "traefik.http.routers.app-green.tls.certresolver=myresolver"
+        - "traefik.http.services.app-green.loadbalancer.server.port=3000"
 
   visualizer:
     image: dockersamples/visualizer:stable
