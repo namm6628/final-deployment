@@ -44,7 +44,7 @@ services:
   app-blue:
     image: nbao1502/final:${BLUE_IMAGE_TAG}
     environment:
-      - MONGO_URI=mongodb://localhost:27017/products_db # Trỏ đúng vào service mongodb ở trên
+      - MONGO_URI=mongodb://mongodb:27017/products_db # Trỏ đúng vào service mongodb ở trên
     networks:
       - app-network
     deploy:
@@ -60,7 +60,7 @@ services:
   app-green:
     image: nbao1502/final:${GREEN_IMAGE_TAG}
     environment:
-      - MONGO_URI=mongodb://localhost:27017/products_db
+      - MONGO_URI=mongodb://mongodb:27017/products_db
     networks:
       - app-network
     deploy:
