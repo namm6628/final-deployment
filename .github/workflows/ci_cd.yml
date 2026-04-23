@@ -86,29 +86,24 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            cd /home/${{ secrets.SERVER_USER }}/app/final_code
+            cd /home/${{ secrets.SERVER_HOST }}/app/final_code
             
-            echo "📦 Đăng nhập Docker Hub..."
-            echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
-
-            # 1. Lấy thông tin Image hiện tại từ Swarm (Fix lỗi cắt chuỗi rỗng)
+            # 1. Lấy Image thực tế từ Swarm
             RAW_BLUE=$(docker service inspect my-stack_app-blue --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}' 2>/dev/null || echo "")
             RAW_GREEN=$(docker service inspect my-stack_app-green --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}' 2>/dev/null || echo "")
 
-            # Trích xuất tag sau dấu ":" và đảm bảo không lấy giá trị rỗng
+            # 2. Trích xuất Tag (Xử lý chuỗi an toàn)
             GET_BLUE_TAG=$(echo $RAW_BLUE | awk -F: '{print $2}' | awk -F@ '{print $1}')
             GET_GREEN_TAG=$(echo $RAW_GREEN | awk -F: '{print $2}' | awk -F@ '{print $1}')
             
-            # 2. Gán giá trị mặc định nếu là lần đầu deploy (tránh lỗi invalid reference format)
             NEW_TAG="${{ github.sha }}"
+            # QUAN TRỌNG: Nếu không thấy tag cũ, dùng luôn NEW_TAG để không bị trống
             CURRENT_BLUE_TAG=${GET_BLUE_TAG:-$NEW_TAG}
             CURRENT_GREEN_TAG=${GET_GREEN_TAG:-$NEW_TAG}
 
-            # 3. Kiểm tra môi trường Live dựa trên Replicas
-            GREEN_STATUS=$(docker service ls --filter name=my-stack_app-green --format "{{.Replicas}}" | cut -d'/' -f1)
-            CURRENT_GREEN_REPLICAS=${GREEN_STATUS:-0}
-
-            echo "📊 Current Green Replicas: $CURRENT_GREEN_REPLICAS"
+            # 3. Kiểm tra Replicas để xác định Target
+            GREEN_COUNT=$(docker service ls --filter name=my-stack_app-green --format "{{.Replicas}}" | awk 'NR>1 {split($4,a,"/"); print a[1]}')
+            CURRENT_GREEN_REPLICAS=${GREEN_COUNT:-0}
 
             if [ "$CURRENT_GREEN_REPLICAS" -ge "1" ]; then
                 echo "🟢 Green đang LIVE -> Target: 🔵 Blue"
@@ -121,7 +116,8 @@ jobs:
             fi
 
             # --- BƯỚC 1: TRIỂN KHAI SONG SONG ---
-            echo "🚀 [1/2] Đang bật bản mới song song với bản cũ..."
+            echo "BLUE_IMAGE_TAG=${TARGET_COLOR=="blue" ? $NEW_TAG : $LIVE_TAG}" > .env # Logic giả lập
+            # Để an toàn, ghi đè tường minh:
             if [ "$TARGET_COLOR" == "blue" ]; then
                 echo "BLUE_IMAGE_TAG=$NEW_TAG" > .env
                 echo "GREEN_IMAGE_TAG=$LIVE_TAG" >> .env
@@ -133,12 +129,9 @@ jobs:
             echo "GREEN_REPLICAS=3" >> .env
             
             docker stack deploy -c docker-compose.yml my-stack --with-registry-auth --detach=false
-
-            echo "⏳ Chờ 30s để kiểm tra sức khỏe..."
             sleep 30
 
             # --- BƯỚC 2: TẮT BẢN CŨ ---
-            echo "✂️ [2/2] Đang ngắt kết nối bản cũ..."
             if [ "$TARGET_COLOR" == "blue" ]; then
                 echo "BLUE_IMAGE_TAG=$NEW_TAG" > .env
                 echo "GREEN_IMAGE_TAG=$LIVE_TAG" >> .env
@@ -150,8 +143,5 @@ jobs:
                 echo "GREEN_REPLICAS=3" >> .env
                 echo "BLUE_REPLICAS=0" >> .env
             fi
-
             docker stack deploy -c docker-compose.yml my-stack --with-registry-auth --detach=false
-            
-            echo "✅ Blue-Green Deployment thành công!"
             docker service ls
