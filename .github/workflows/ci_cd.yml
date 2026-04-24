@@ -86,10 +86,10 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            cd /home/${{ secrets.SERVER_HOST }}/app/final_code
+            # SỬA LỖI ĐƯỜNG DẪN: Dùng SERVER_USER thay vì SERVER_HOST
+            cd /home/${{ secrets.SERVER_USER }}/app/final_code
             
-            # 1. Kiểm tra xem Green đang chạy hay Blue đang chạy
-            # Chúng ta dùng "my-stack_app-green" vì Docker Swarm tự thêm tiền tố stack
+            # 1. Xác định môi trường đang chạy
             GREEN_REPLICAS=$(docker service ls --filter name=my-stack_app-green --format "{{.Replicas}}" | awk -F'/' '{print $1}' || echo "0")
             
             if [ "$GREEN_REPLICAS" -gt "0" ]; then
@@ -102,19 +102,28 @@ jobs:
                 OLD="blue"
             fi
 
-            # 2. Bước 1: Bật service mới lên (Live song song)
-            # Gán tag mới cho TARGET, giữ tag cũ cho OLD
             NEW_TAG="${{ github.sha }}"
+
+            # LẤY TAG CŨ ĐỂ TUÂN THỦ NO-LATEST
+            OLD_IMAGE=$(docker service ls --filter name=my-stack_app-$OLD --format "{{.Image}}" | head -n 1)
+            OLD_TAG=$(echo $OLD_IMAGE | awk -F':' '{print $2}' | awk -F'@' '{print $1}')
             
-            # Ghi file .env để Docker Compose đọc
+            # Nếu không tìm thấy tag cũ (lần đầu deploy), dùng tạm tag mới
+            if [ -z "$OLD_TAG" ]; then
+                OLD_TAG=$NEW_TAG
+            fi
+            
+            echo "Tag mới: $NEW_TAG | Tag cũ duy trì: $OLD_TAG"
+
+            # 2. Bật service mới lên (Live song song 6 containers)
             if [ "$TARGET" == "blue" ]; then
                 echo "BLUE_IMAGE_TAG=$NEW_TAG" > .env
-                echo "GREEN_IMAGE_TAG=latest" >> .env # Hoặc tag hiện tại
+                echo "GREEN_IMAGE_TAG=$OLD_TAG" >> .env
                 echo "BLUE_REPLICAS=3" >> .env
                 echo "GREEN_REPLICAS=3" >> .env
             else
                 echo "GREEN_IMAGE_TAG=$NEW_TAG" > .env
-                echo "BLUE_IMAGE_TAG=latest" >> .env
+                echo "BLUE_IMAGE_TAG=$OLD_TAG" >> .env
                 echo "GREEN_REPLICAS=3" >> .env
                 echo "BLUE_REPLICAS=3" >> .env
             fi
@@ -124,7 +133,7 @@ jobs:
             # Đợi 30s để service mới kịp kết nối MongoDB và Healthy
             sleep 30
 
-            # 3. Bước 2: Tắt service cũ
+            # 3. Tắt service cũ (Thu hồi tài nguyên)
             if [ "$TARGET" == "blue" ]; then
                 echo "GREEN_REPLICAS=0" >> .env
             else
