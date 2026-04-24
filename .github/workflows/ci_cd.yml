@@ -86,11 +86,12 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            # SỬA LỖI ĐƯỜNG DẪN: Dùng SERVER_USER thay vì SERVER_HOST
             cd /home/${{ secrets.SERVER_USER }}/app/final_code
             
-            # 1. Xác định môi trường đang chạy
-            GREEN_REPLICAS=$(docker service ls --filter name=my-stack_app-green --format "{{.Replicas}}" | awk -F'/' '{print $1}' || echo "0")
+            # 1. LẤY SỐ LƯỢNG REPLICAS VÀ XỬ LÝ CHUỖI RỖNG
+            GREEN_REPLICAS=$(docker service ls --filter name=my-stack_app-green --format "{{.Replicas}}" | awk -F'/' '{print $1}')
+            # Nếu GREEN_REPLICAS rỗng, tự động gán bằng 0 để tránh lỗi Bash
+            GREEN_REPLICAS=${GREEN_REPLICAS:-0} 
             
             if [ "$GREEN_REPLICAS" -gt "0" ]; then
                 echo "🟢 Green đang chạy -> Triển khai lên 🔵 Blue"
@@ -115,19 +116,20 @@ jobs:
             
             echo "Tag mới: $NEW_TAG | Tag cũ duy trì: $OLD_TAG"
 
-            # 2. Bật service mới lên (Live song song 6 containers)
+            # 2. KHẮC PHỤC LỖI .ENV: Export trực tiếp biến môi trường
             if [ "$TARGET" == "blue" ]; then
-                echo "BLUE_IMAGE_TAG=$NEW_TAG" > .env
-                echo "GREEN_IMAGE_TAG=$OLD_TAG" >> .env
-                echo "BLUE_REPLICAS=3" >> .env
-                echo "GREEN_REPLICAS=3" >> .env
+                export BLUE_IMAGE_TAG=$NEW_TAG
+                export GREEN_IMAGE_TAG=$OLD_TAG
+                export BLUE_REPLICAS=3
+                export GREEN_REPLICAS=3
             else
-                echo "GREEN_IMAGE_TAG=$NEW_TAG" > .env
-                echo "BLUE_IMAGE_TAG=$OLD_TAG" >> .env
-                echo "GREEN_REPLICAS=3" >> .env
-                echo "BLUE_REPLICAS=3" >> .env
+                export GREEN_IMAGE_TAG=$NEW_TAG
+                export BLUE_IMAGE_TAG=$OLD_TAG
+                export GREEN_REPLICAS=3
+                export BLUE_REPLICAS=3
             fi
 
+            # Deploy lần 1: Bật service mới lên (Live song song)
             docker stack deploy -c docker-compose.yml my-stack --with-registry-auth
             
             # Đợi 30s để service mới kịp kết nối MongoDB và Healthy
@@ -135,9 +137,10 @@ jobs:
 
             # 3. Tắt service cũ (Thu hồi tài nguyên)
             if [ "$TARGET" == "blue" ]; then
-                echo "GREEN_REPLICAS=0" >> .env
+                export GREEN_REPLICAS=0
             else
-                echo "BLUE_REPLICAS=0" >> .env
+                export BLUE_REPLICAS=0
             fi
             
+            # Deploy lần 2: Tắt service cũ đi
             docker stack deploy -c docker-compose.yml my-stack --with-registry-auth
