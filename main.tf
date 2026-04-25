@@ -95,6 +95,11 @@ resource "aws_instance" "swarm_manager" {
   key_name      = var.key_name
   vpc_security_group_ids = [aws_security_group.swarm_sg.id]
 
+  root_block_device {
+    volume_size = 16
+    volume_type = "gp3" 
+  }
+
   tags = merge(local.common_tags, { Name = "${var.environment}-swarm-manager" })
 }
 
