@@ -76,10 +76,10 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          source: "final_code/docker-compose.yml,final_code/prometheus.yml,final_code/grafana_datasource.yml" 
-          target: "/home/${{ secrets.SERVER_USER }}/app/" 
+          source: "final_code/docker-compose.yml,final_code/prometheus.yml,final_code/grafana_datasource.yml"
+          target: "/home/${{ secrets.SERVER_USER }}/app/"
 
-      - name: Deploy Blue-Green (Tuân thủ No-Latest)
+      - name: Deploy Blue-Green (FIXED)
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -87,36 +87,30 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             cd /home/${{ secrets.SERVER_USER }}/app/final_code
-            
-            # 1. LẤY SỐ LƯỢNG REPLICAS VÀ XỬ LÝ CHUỖI RỖNGG
+
+            # Detect môi trường đang chạy
             GREEN_REPLICAS=$(docker service ls --filter name=my-stack_app-green --format "{{.Replicas}}" | awk -F'/' '{print $1}')
-            # Nếu GREEN_REPLICAS rỗng, tự động gán bằng 0 để tránh lỗi Bash
-            GREEN_REPLICAS=${GREEN_REPLICAS:-0} 
-            
+            GREEN_REPLICAS=${GREEN_REPLICAS:-0}
+
             if [ "$GREEN_REPLICAS" -gt "0" ]; then
-                echo "🟢 Green đang chạy -> Triển khai lên 🔵 Blue"
+                echo "🟢 Green đang chạy -> Deploy Blue"
                 TARGET="blue"
                 OLD="green"
             else
-                echo "🔵 Blue đang chạy (hoặc lần đầu) -> Triển khai lên 🟢 Green"
+                echo "🔵 Blue đang chạy -> Deploy Green"
                 TARGET="green"
                 OLD="blue"
             fi
 
             NEW_TAG="${{ github.sha }}"
 
-            # LẤY TAG CŨ ĐỂ TUÂN THỦ NO-LATEST
             OLD_IMAGE=$(docker service ls --filter name=my-stack_app-$OLD --format "{{.Image}}" | head -n 1)
             OLD_TAG=$(echo $OLD_IMAGE | awk -F':' '{print $2}' | awk -F'@' '{print $1}')
-            
-            # Nếu không tìm thấy tag cũ (lần đầu deploy), dùng tạm tag mới
-            if [ -z "$OLD_TAG" ]; then
-                OLD_TAG=$NEW_TAG
-            fi
-            
-            echo "Tag mới: $NEW_TAG | Tag cũ duy trì: $OLD_TAG"
+            [ -z "$OLD_TAG" ] && OLD_TAG=$NEW_TAG
 
-            # 2. KHẮC PHỤC LỖI .ENV: Export trực tiếp biến môi trường
+            echo "New: $NEW_TAG | Old: $OLD_TAG"
+
+            # Export ENV
             if [ "$TARGET" == "blue" ]; then
                 export BLUE_IMAGE_TAG=$NEW_TAG
                 export GREEN_IMAGE_TAG=$OLD_TAG
@@ -129,18 +123,17 @@ jobs:
                 export BLUE_REPLICAS=3
             fi
 
-            # Deploy lần 1: Bật service mới lên (Live song song)
+            # 🚀 Deploy 1 LẦN DUY NHẤT
             docker stack deploy -c docker-compose.yml my-stack --with-registry-auth
-            
-            # Đợi 30s để service mới kịp kết nối MongoDB và Healthy
+
+            echo "⏳ Waiting for new version..."
             sleep 30
 
-            # 3. Tắt service cũ (Thu hồi tài nguyên)
+            # 🔥 SCALE SERVICE CŨ (KHÔNG deploy lại)
             if [ "$TARGET" == "blue" ]; then
-                export GREEN_REPLICAS=0
+                docker service scale my-stack_app-green=0
             else
-                export BLUE_REPLICAS=0
+                docker service scale my-stack_app-blue=0
             fi
-            
-            # Deploy lần 2: Tắt service cũ đi
-            docker stack deploy -c docker-compose.yml my-stack --with-registry-auth
+
+            echo "✅ Blue-Green deployment completed"
