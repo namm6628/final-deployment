@@ -143,7 +143,7 @@ services:
     deploy:
       mode: global # Quan trọng: Ép mọi Node (EC2) đều phải chạy để đo CPU/RAM
 
-  # 🐳 CADVISOR - Đo lường thông số từng Container
+  # 🐳 CADVISOR - Đo lường thông số từng Containerr
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.47.0
     command:
