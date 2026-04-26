@@ -88,7 +88,7 @@ jobs:
           script: |
             cd /home/${{ secrets.SERVER_USER }}/app/final_code
             
-            # 1. LẤY SỐ LƯỢNG REPLICAS VÀ XỬ LÝ CHUỖI RỖNG
+            # 1. LẤY SỐ LƯỢNG REPLICAS VÀ XỬ LÝ CHUỖI RỖNGG
             GREEN_REPLICAS=$(docker service ls --filter name=my-stack_app-green --format "{{.Replicas}}" | awk -F'/' '{print $1}')
             # Nếu GREEN_REPLICAS rỗng, tự động gán bằng 0 để tránh lỗi Bash
             GREEN_REPLICAS=${GREEN_REPLICAS:-0} 
