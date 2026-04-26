@@ -37,9 +37,14 @@ services:
       - "--metrics.prometheus.addrouterslabels=true"
       - "--entrypoints.metrics.address=:8082" # Tạo cổng riêng cho metrics
       - "--metrics.prometheus.entrypoint=metrics"
+      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+      - "--certificatesresolvers.myresolver.acme.email=ngbao150205@gmail.com" # Nhập email thật của bạn vào đây
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+
     ports:
       - "80:80"
       - "443:443"
+      - "8080:8080"
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "traefik-certs:/letsencrypt"
@@ -148,6 +153,8 @@ services:
         - "traefik.http.routers.grafana-http.rule=Host(`monitor.namcloud.xyz`)"
         - "traefik.http.routers.grafana-http.entrypoints=web"
         - "traefik.http.routers.grafana-http.middlewares=redirect-to-https"
+
+
 
   # 🖥️ NODE EXPORTER - Đo lường phần cứng máy chủ
   node-exporter:
