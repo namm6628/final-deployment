@@ -33,6 +33,10 @@ services:
       - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
       - "--certificatesresolvers.myresolver.acme.email=nbao1502@gmail.com"
       - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+      - "--metrics.prometheus=true"
+      - "--metrics.prometheus.addrouterslabels=true"
+      - "--entrypoints.metrics.address=:8082" # Tạo cổng riêng cho metrics
+      - "--metrics.prometheus.entrypoint=metrics"
     ports:
       - "80:80"
       - "443:443"
@@ -140,6 +144,10 @@ services:
         - "traefik.http.routers.grafana.entrypoints=websecure"
         - "traefik.http.routers.grafana.tls.certresolver=myresolver"
         - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+
+        - "traefik.http.routers.grafana-http.rule=Host(`monitor.namcloud.xyz`)"
+        - "traefik.http.routers.grafana-http.entrypoints=web"
+        - "traefik.http.routers.grafana-http.middlewares=redirect-to-https"
 
   # 🖥️ NODE EXPORTER - Đo lường phần cứng máy chủ
   node-exporter:

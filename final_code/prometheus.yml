@@ -20,3 +20,8 @@ scrape_configs:
       - names: ['tasks.my-stack_cadvisor']
         type: 'A'
         port: 8080
+
+  - job_name: 'traefik'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['traefik:8082']
