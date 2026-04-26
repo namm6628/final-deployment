@@ -133,6 +133,8 @@ services:
   # 📈 GRAFANA - Giao diện biểu đồ (Được Traefik bảo vệ bằng HTTPS)
   grafana:
     image: grafana/grafana:10.4.0
+    environment:
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
     volumes:
       - grafana_data:/var/lib/grafana
     configs:                                                               # Thêm dòng này
