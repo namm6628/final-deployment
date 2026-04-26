@@ -10,13 +10,13 @@ scrape_configs:
   # Node Exporter (CPU/RAM máy)
   - job_name: 'node-exporter'
     dns_sd_configs:
-      - names: ['tasks.node-exporter']
+      - names: ['tasks.my-stack_node-exporter']
         type: 'A'
         port: 9100
 
   # cAdvisor (container metrics)
   - job_name: 'cadvisor'
     dns_sd_configs:
-      - names: ['tasks.cadvisor']
+      - names: ['tasks.my-stack_cadvisor']
         type: 'A'
         port: 8080
