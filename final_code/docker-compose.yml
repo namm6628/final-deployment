@@ -112,6 +112,9 @@ services:
     image: grafana/grafana:latest
     volumes:
       - grafana_data:/var/lib/grafana
+    configs:                                                               # Thêm dòng này
+      - source: grafana_datasource                                         # Thêm dòng này
+        target: /etc/grafana/provisioning/datasources/prometheus.yml
     networks:
       - app-network
     deploy:
@@ -169,3 +172,5 @@ volumes:
 configs:
   prometheus_config:
     file: ./prometheus.yml # Nhớ tạo file này cùng thư mục với docker-compose.yml
+  grafana_datasource:                 # Thêm dòng này
+    file: ./grafana_datasource.yml
