@@ -24,4 +24,4 @@ scrape_configs:
   - job_name: 'traefik'
     scrape_interval: 5s
     static_configs:
-      - targets: ['traefik:8082']
+      - targets: ['my-stack_traefik:8082']
