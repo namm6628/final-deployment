@@ -3,7 +3,7 @@ version: '3.8'
 services:
   # 🍃 DATABASE (Lưu trữ dữ liệu an toàn, không bị mất khi restart)
   mongodb:
-    image: mongo:latest
+    image: mongo:7.0
     volumes:
       - mongo-data:/data/db
     networks:
@@ -91,7 +91,7 @@ services:
 
   # 📊 PROMETHEUS - Lưu trữ Metrics (Chỉ chạy trên Manager)
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v2.50.1
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -109,7 +109,7 @@ services:
 
   # 📈 GRAFANA - Giao diện biểu đồ (Được Traefik bảo vệ bằng HTTPS)
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:10.4.0
     volumes:
       - grafana_data:/var/lib/grafana
     configs:                                                               # Thêm dòng này
@@ -129,7 +129,7 @@ services:
 
   # 🖥️ NODE EXPORTER - Đo lường phần cứng máy chủ
   node-exporter:
-    image: prom/node-exporter:latest
+    image: prom/node-exporter:v1.7.0
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
