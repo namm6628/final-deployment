@@ -11,6 +11,12 @@ services:
     deploy:
       placement:
         constraints: [node.role == manager]
+      restart_policy:
+        condition: any
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first  
 
   # 1. CỔNG GÁC TRAEFIK (Tự động cấp SSL HTTPS)
   traefik:
