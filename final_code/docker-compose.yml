@@ -91,28 +91,29 @@ services:
 
   # 📊 PROMETHEUS - Lưu trữ Metrics (Chỉ chạy trên Manager)
   prometheus:
-    image: prom/prometheus:v2.50.1
-    ports:
-      - "9090:9090"
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--storage.tsdb.retention.time=15d'
+  image: prom/prometheus:v2.50.1
+  ports:
+    - "9090:9090"
+  command:
+    - '--config.file=/etc/prometheus/prometheus.yml'
+    - '--storage.tsdb.path=/prometheus'
+    - '--storage.tsdb.retention.time=15d'
+  volumes:
+    - prometheus_data:/prometheus
+  configs:
+    - source: prometheus_config
+      target: /etc/prometheus/prometheus.yml
+  networks:
+    - app-network
+  deploy:
+    placement:
+      constraints: [node.role == manager]
+    labels:   # ✅ CHUYỂN XUỐNG ĐÂY (đúng chuẩn Swarm + Traefik)
       - "traefik.enable=true"
-      - "traefik.http.routers.prometheus.rule=Host(`prometheus.namcloud.xyz`)" # 👈 Dùng subdomain này
+      - "traefik.http.routers.prometheus.rule=Host(`prometheus.namcloud.xyz`)"
       - "traefik.http.routers.prometheus.entrypoints=websecure"
       - "traefik.http.routers.prometheus.tls.certresolver=myresolver"
       - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
-    volumes:
-      - prometheus_data:/prometheus
-    configs:
-      - source: prometheus_config
-        target: /etc/prometheus/prometheus.yml
-    networks:
-      - app-network
-    deploy:
-      placement:
-        constraints: [node.role == manager]
 
   # 📈 GRAFANA - Giao diện biểu đồ (Được Traefik bảo vệ bằng HTTPS)
   grafana:
