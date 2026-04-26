@@ -153,20 +153,17 @@ services:
 
   # 🐳 CADVISOR - Đo lường thông số từng Containerr
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.47.0
+    image: gcr.io/cadvisor/cadvisor:v0.47.2   # 🔥 nâng version
     privileged: true
     user: root
     command:
-      - '-docker_only=true'
-      - '-housekeeping_interval=10s'
-      - '-prefix_stats=true'
+      - '--docker_only=true'
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:rw
       - /sys:/sys:ro
-      - /sys/fs/cgroup:/sys/fs/cgroup:ro   # 🔥 QUAN TRỌNG (fix chính)
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
       - /var/lib/docker/:/var/lib/docker:ro
-      - /dev/disk/:/dev/disk:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - app-network
@@ -175,6 +172,8 @@ services:
       placement:
         constraints:
           - node.platform.os == linux
+      restart_policy:
+        condition: any
 
 # ==========================================
 # KHAI BÁO NETWORK, VOLUMES & CONFIGS
