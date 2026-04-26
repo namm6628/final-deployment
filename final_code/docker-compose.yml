@@ -116,7 +116,7 @@ services:
     volumes:
       - prometheus_data:/prometheus
     configs:
-      - source: prometheus_config_v4
+      - source: prometheus_config_v5
         target: /etc/prometheus/prometheus.yml
     networks:
       - app-network
@@ -210,7 +210,7 @@ volumes:
   grafana_data:
 
 configs:
-  prometheus_config_v4:
+  prometheus_config_v5:
     file: ./prometheus.yml # Nhớ tạo file này cùng thư mục với docker-compose.yml
   grafana_datasource:                 # Thêm dòng này
     file: ./grafana_datasource.yml
