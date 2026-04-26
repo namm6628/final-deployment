@@ -1,18 +1,22 @@
-cadvisor:
-  image: gcr.io/cadvisor/cadvisor:v0.47.2
-  privileged: true
-  user: root
-  command:
-    - '--docker_only=true'
-    - '--listen_ip=0.0.0.0'   # 🔥 QUAN TRỌNG
-  volumes:
-    - /:/rootfs:ro
-    - /var/run:/var/run:rw
-    - /sys:/sys:ro
-    - /sys/fs/cgroup:/sys/fs/cgroup:ro
-    - /var/lib/docker/:/var/lib/docker:ro
-    - /var/run/docker.sock:/var/run/docker.sock:ro
-  networks:
-    - app-network
-  deploy:
-    mode: global
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  # Prometheus tự monitor
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Node Exporter (CPU/RAM máy)
+  - job_name: 'node-exporter'
+    dns_sd_configs:
+      - names: ['tasks.node-exporter']
+        type: 'A'
+        port: 9100
+
+  # cAdvisor (container metrics)
+  - job_name: 'cadvisor'
+    dns_sd_configs:
+      - names: ['tasks.cadvisor']
+        type: 'A'
+        port: 8080
