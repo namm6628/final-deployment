@@ -92,10 +92,17 @@ services:
   # 📊 PROMETHEUS - Lưu trữ Metrics (Chỉ chạy trên Manager)
   prometheus:
     image: prom/prometheus:v2.50.1
+    ports:
+      - "9090:9090"
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--storage.tsdb.retention.time=15d'
+      - "traefik.enable=true"
+      - "traefik.http.routers.prometheus.rule=Host(`prometheus.namcloud.xyz`)" # 👈 Dùng subdomain này
+      - "traefik.http.routers.prometheus.entrypoints=websecure"
+      - "traefik.http.routers.prometheus.tls.certresolver=myresolver"
+      - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
     volumes:
       - prometheus_data:/prometheus
     configs:
@@ -145,13 +152,13 @@ services:
 
   # 🐳 CADVISOR - Đo lường thông số từng Containerr
   cadvisor:
-    # Sử dụng bản v0.39.3 - Bản ổn định nhất cho việc nhận diện Label/Name trên Swarm
-    image: google/cadvisor:v0.39.3 
+    image: gcr.io/cadvisor/cadvisor:v0.47.0 # Quay lại bản mới để hỗ trợ Cgroup v2
     privileged: true
     user: root
     command:
       - '-docker_only=true'
       - '-housekeeping_interval=10s'
+      - '-prefix_stats=true' # Quan trọng cho Cgroup v2
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:rw
