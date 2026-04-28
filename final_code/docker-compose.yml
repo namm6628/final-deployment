@@ -3,7 +3,7 @@ version: '3.8'
 services:
   # 🍃 DATABASE (Lưu trữ dữ liệu an toàn, không bị mất khi restart)
   mongodb:
-    image: mongo:7.0
+    image: mongo:8.0
     volumes:
       - mongo-data:/data/db
     networks:
