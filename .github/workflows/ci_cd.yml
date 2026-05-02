@@ -25,14 +25,11 @@ jobs:
       - name: Cài dependencies (clean install)
         run: cd final_code && npm ci
 
-      - name: Lint code
-        run: cd final_code && npm run lint
-
       - name: Code Quality and Linting
         run: |
           cd final_code
-          # Cài đặt eslint tạm thời vào môi trường CI
-          npm install eslint --no-save
+          # Ép hệ thống cài đặt phiên bản ESLint 8.57.0 (chuẩn cũ)
+          npm install eslint@8.57.0 --no-save
           # Khởi chạy eslint để quét toàn bộ file js (bỏ lệnh bypass || true)
           npx eslint . --ext .js,.jsx --no-error-on-unmatched-pattern
 
