@@ -28,6 +28,14 @@ jobs:
       - name: Lint code
         run: cd final_code && npm run lint
 
+      - name: Code Quality and Linting
+        run: |
+          cd final_code
+          # Cài đặt eslint tạm thời vào môi trường CI
+          npm install eslint --no-save
+          # Khởi chạy eslint để quét toàn bộ file js (bỏ lệnh bypass || true)
+          npx eslint . --ext .js,.jsx --no-error-on-unmatched-pattern
+
       - name: Scan Application (Trivy FS)
         uses: aquasecurity/trivy-action@master
         with:
