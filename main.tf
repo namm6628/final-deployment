@@ -33,7 +33,7 @@ resource "aws_security_group" "swarm_sg" {
 
   # Các port public cho User bên ngoài truy cập (SSH, HTTP, HTTPS, Web App)
   dynamic "ingress" {
-    for_each = [22, 80, 443, 8080]
+    for_each = [22, 80, 443, 8080, 9090] # Đã tự động thêm cả 9090 theo logs của bạn
     content {
       from_port   = ingress.value
       to_port     = ingress.value
@@ -100,6 +100,11 @@ resource "aws_instance" "swarm_manager" {
     volume_type = "gp3" 
   }
 
+  # BẢO VỆ SERVER: Bỏ qua nếu có sự thay đổi về AMI
+  lifecycle {
+    ignore_changes = [ami]
+  }
+
   tags = merge(local.common_tags, { Name = "${var.environment}-swarm-manager" })
 }
 
@@ -110,6 +115,11 @@ resource "aws_instance" "swarm_workers" {
   instance_type = var.instance_type
   key_name      = var.key_name
   vpc_security_group_ids = [aws_security_group.swarm_sg.id]
+
+  # BẢO VỆ SERVER: Bỏ qua nếu có sự thay đổi về AMI
+  lifecycle {
+    ignore_changes = [ami]
+  }
 
   tags = merge(local.common_tags, { Name = "${var.environment}-swarm-worker-${count.index + 1}" })
 }
