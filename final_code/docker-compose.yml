@@ -65,7 +65,8 @@ services:
     networks:
       - app-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/"] # Kiểm tra app có sống không
+      # ✅ Đã sửa: Dùng wget thay cho curl để tương thích với Alpine
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -95,7 +96,8 @@ services:
     networks:
       - app-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      # ✅ Đã sửa: Dùng wget thay cho curl để tương thích với Alpine
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3
