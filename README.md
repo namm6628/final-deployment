@@ -1,4 +1,4 @@
-## 🚀 Final Deployment – E-Commerce on Docker Swarm
+## 🚀 Final Deployment – E-Commerce on Docker Swarm:
 📌 Tổng quan
 
 Dự án này triển khai hệ thống E-Commerce trên nền tảng Cloud AWS với kiến trúc hiện đại:
