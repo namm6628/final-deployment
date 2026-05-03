@@ -183,12 +183,14 @@ jobs:
             sleep 45
 
             REPLICAS_STATUS=$(docker service ls --filter name=my-stack_app-$TARGET --format "{{.Replicas}}")
-            RUNNING=$(echo $REPLICAS_STATUS | awk -F'/' '{print $1}')
-            TARGET_COUNT=$(echo $REPLICAS_STATUS | awk -F'/' '{print $2}')
+            # Đã thêm tr -d ' ' để xóa khoảng trắng an toàn
+            RUNNING=$(echo $REPLICAS_STATUS | awk -F'/' '{print $1}' | tr -d ' ')
+            TARGET_COUNT=$(echo $REPLICAS_STATUS | awk -F'/' '{print $2}' | tr -d ' ')
 
             echo "📊 Trạng thái của my-stack_app-$TARGET: $RUNNING / $TARGET_COUNT replicas"
 
-            if [ "$RUNNING" != "$TARGET_COUNT" ] || [ "$RUNNING" == "0" ]; then
+            # Đã sửa != thành -lt (nhỏ hơn) để tránh lỗi logic khi scale
+            if [ "$RUNNING" -lt "$TARGET_COUNT" ] || [ "$RUNNING" == "0" ]; then
                 echo "❌ LỖI NGHIÊM TRỌNG: Phân khu $TARGET không vượt qua được Healthcheck!"
                 echo "🔄 Docker Swarm đã kích hoạt Rollback tự động."
                 echo "🛑 Hủy bỏ Pipeline ngay lập tức để bảo vệ hệ thống. Phân khu $OLD vẫn đang phục vụ người dùng."
