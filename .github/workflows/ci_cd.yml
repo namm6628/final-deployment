@@ -108,10 +108,10 @@ jobs:
             echo "✅ Staging deployment completed automatically."
 
   # ==========================================
-  # JOB 3: PRODUCTION - Đợi Phê Duyệt & Blue-Green
+  # JOB 3: PRODUCTION - Đợi Phê Duyệt & Blue-Green (Tích hợp Rollback)
   # ==========================================
   deploy-production:
-    name: Deploy to Production (Blue-Green)
+    name: Deploy to Production (Blue-Green & Rollback)
     needs: deploy-staging # Phải đợi Job Staging chạy xong
     runs-on: ubuntu-latest
     environment: production # Kích hoạt chốt chặn Manual Approval
@@ -129,7 +129,7 @@ jobs:
           source: "final_code/docker-compose.yml,final_code/prometheus.yml,final_code/grafana_datasource.yml"
           target: "/home/${{ secrets.SERVER_USER }}/app/"
 
-      - name: Deploy Blue-Green (FIXED)
+      - name: Deploy Blue-Green with Automated Rollback Check
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -138,7 +138,7 @@ jobs:
           script: |
             cd /home/${{ secrets.SERVER_USER }}/app/final_code
 
-            # Detect môi trường đang chạy
+            # 1. Detect môi trường đang chạy
             GREEN_REPLICAS=$(docker service ls --filter name=my-stack_app-green --format "{{.Replicas}}" | awk -F'/' '{print $1}')
             GREEN_REPLICAS=${GREEN_REPLICAS:-0}
 
@@ -158,9 +158,9 @@ jobs:
             OLD_TAG=$(echo $OLD_IMAGE | awk -F':' '{print $2}' | awk -F'@' '{print $1}')
             [ -z "$OLD_TAG" ] && OLD_TAG=$NEW_TAG
 
-            echo "New: $NEW_TAG | Old: $OLD_TAG"
+            echo "Version - New: $NEW_TAG | Old: $OLD_TAG"
 
-            # Export ENV
+            # 2. Export ENV
             if [ "$TARGET" == "blue" ]; then
                 export BLUE_IMAGE_TAG=$NEW_TAG
                 export GREEN_IMAGE_TAG=$OLD_TAG
@@ -173,17 +173,38 @@ jobs:
                 export BLUE_REPLICAS=3
             fi
 
-            # 🚀 Deploy 1 LẦN DUY NHẤT
+            # 3. 🚀 Deploy 1 LẦN DUY NHẤT (Bật bản mới lên song song bản cũ)
             docker stack deploy -c docker-compose.yml my-stack --with-registry-auth
 
-            echo "⏳ Waiting for new version..."
-            sleep 30
+            # ==========================================================
+            # 4. CHỜ ĐỢI VÀ KIỂM TRA SỨC KHỎE (YÊU CẦU 7.4)
+            # ==========================================================
+            echo "⏳ Đợi 45 giây để Docker Swarm chạy Healthcheck và xác nhận trạng thái..."
+            sleep 45
 
-            # 🔥 SCALE SERVICE CŨ (KHÔNG deploy lại)
+            REPLICAS_STATUS=$(docker service ls --filter name=my-stack_app-$TARGET --format "{{.Replicas}}")
+            RUNNING=$(echo $REPLICAS_STATUS | awk -F'/' '{print $1}')
+            TARGET_COUNT=$(echo $REPLICAS_STATUS | awk -F'/' '{print $2}')
+
+            echo "📊 Trạng thái của my-stack_app-$TARGET: $RUNNING / $TARGET_COUNT replicas"
+
+            if [ "$RUNNING" != "$TARGET_COUNT" ] || [ "$RUNNING" == "0" ]; then
+                echo "❌ LỖI NGHIÊM TRỌNG: Phân khu $TARGET không vượt qua được Healthcheck!"
+                echo "🔄 Docker Swarm đã kích hoạt Rollback tự động."
+                echo "🛑 Hủy bỏ Pipeline ngay lập tức để bảo vệ hệ thống. Phân khu $OLD vẫn đang phục vụ người dùng."
+                exit 1 
+            fi
+
+            # ==========================================================
+            # 5. SCALE SERVICE CŨ (Chỉ tắt nếu bản mới hoàn toàn khỏe mạnh)
+            # ==========================================================
+            echo "✅ Bản cập nhật $TARGET đã khởi động thành công 100%!"
+            echo "🗑️ Bắt đầu tắt phân khu cũ $OLD để giải phóng tài nguyên..."
+            
             if [ "$TARGET" == "blue" ]; then
                 docker service scale my-stack_app-green=0
             else
                 docker service scale my-stack_app-blue=0
             fi
 
-            echo "✅ Blue-Green deployment completed"
+            echo "🎉 Blue-Green deployment completed successfully!"
