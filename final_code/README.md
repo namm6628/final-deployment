@@ -2,7 +2,7 @@
 
 > Lưu ý: Dự án này được cung cấp làm nền tảng tham khảo cho sinh viên thực hiện bài presentation giữa kỳ trong môn 502094 - Software Deployment, Operations And Maintenance (biên soạn: ThS. Mai Văn Mạnh). Sinh viên không bắt buộc phải sử dụng đúng dự án này — có thể tự chọn hoặc xây dựng một project tương đương (hoặc phức tạp hơn), sử dụng ngôn ngữ hoặc framework khác nếu muốn.
 
-Đây là một project mẫu tổ chức theo mô hình MVC (Model — View — Controller) xây dựng bằng Node.js + Express, dùng MongoDB (Mongoose) để lưu trữ dữ liệu sản phẩm. Nếu server không kết nối được tới MongoDB trong lần khởi động (timeout 3s), ứng dụng sẽ tự động chuyển sang dùng một datastore `in-memory` và tiếp tục chạy.
+Đây là một project mẫu tổ chức theo mô hình MVC (Model — View — Controller) xây dựng bằng Node.js + Express, dùng MongoDB (Mongoose) để lưu trữ dữ liệu sản phẩm. Nếu server không kết nối được tới MongoDB trong lần khởi động (timeout 3s), ứng dụng sẽ tự động chuyển sang dùng một datastore `in-memory` và tiếp tục chạy..
 
 **Tính năng chính**
 - API REST đầy đủ cho quản lý Product: CRUD (GET/POST/PUT/PATCH/DELETE).
