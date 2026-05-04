@@ -100,6 +100,39 @@ resource "aws_instance" "swarm_manager" {
     volume_type = "gp3" 
   }
 
+  # ==============================================================
+  # SCRIPT TỰ ĐỘNG CÀI ĐẶT GITHUB SELF-HOSTED RUNNER KHI KHỞI ĐỘNG
+  # (Chèn thêm đoạn này vào, các dòng khác giữ nguyên)
+  # ==============================================================
+  user_data = <<-EOF
+    #!/bin/bash
+    # 1. Cập nhật hệ thống và cài đặt Docker (để Runner có thể build image)
+    apt-get update -y
+    apt-get install -y docker.io curl libicu-dev
+    usermod -aG docker ubuntu
+    systemctl enable docker
+    systemctl start docker
+
+    # 2. Tạo thư mục cho Github Runner
+    mkdir -p /home/ubuntu/actions-runner
+    cd /home/ubuntu/actions-runner
+
+    # 3. Tải Github Runner package
+    curl -o actions-runner-linux-x64-2.316.1.tar.gz -L https://github.com/actions/runner/releases/download/v2.316.1/actions-runner-linux-x64-2.316.1.tar.gz
+    tar xzf ./actions-runner-linux-x64-2.316.1.tar.gz
+
+    # Cấp quyền cho user ubuntu (GitHub bắt buộc không được chạy Runner bằng quyền root)
+    chown -R ubuntu:ubuntu /home/ubuntu/actions-runner
+
+    # 4. Cấu hình Runner (BẠN PHẢI THAY URL VÀ TOKEN Ở DÒNG DƯỚI KHI DÙNG THỰC TẾ)
+    su - ubuntu -c "/home/ubuntu/actions-runner/config.sh --url https://github.com/YOUR_GITHUB_NAME/YOUR_REPO_NAME --token YOUR_GITHUB_TOKEN --unattended --replace"
+
+    # 5. Cài đặt thành Service ngầm và Khởi động
+    cd /home/ubuntu/actions-runner
+    ./svc.sh install ubuntu
+    ./svc.sh start
+  EOF
+
   # BẢO VỆ SERVER: Bỏ qua nếu có sự thay đổi về AMI
   lifecycle {
     ignore_changes = [ami]
