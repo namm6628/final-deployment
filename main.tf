@@ -1,15 +1,14 @@
 # Tạm thời comment Remote Backend nếu AWS Learner Lab báo lỗi IAM Permission
 
 terraform {
-  # Khai báo sử dụng AWS S3 để lưu trữ file trạng thái (Thay vì lưu ở máy cá nhân)
-  backend "s3" {
-    bucket         = "nbao-terraform-state-final" # BẠN PHẢI TỰ ĐỔI TÊN NÀY CHO KHÔNG TRÙNG VỚI AI
-    key            = "final-project/terraform.tfstate"
-    region         = "us-east-1"
-    dynamodb_table = "terraform-state-lock" # Bảng này dùng để khóa, tránh 2 người sửa cùng lúc
-    encrypt        = true
-  }
+  backend "s3" {} # Để trống hoàn toàn ở đây
 }
+
+provider "aws" {
+  region = "us-east-1"
+}
+
+
 
 locals {
   common_tags = {
